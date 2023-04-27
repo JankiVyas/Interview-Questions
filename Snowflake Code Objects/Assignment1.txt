@@ -1,0 +1,21 @@
+//Create or replace database exercise_db;
+use exercise_db;
+create or replace schema external_stages;
+create or replace stage aws_stage
+    url='s3://snowflake-assignments-mc/loadingdata/';
+    //credentials=(aws_key_id='ABCS_DUMMY_ID', aws_secret_key='1234abcs_key');
+
+desc stage aws_stage;
+
+list @aws_stage;
+
+select count(1) from customers;
+
+copy into customers
+from @aws_stage
+file_format=(type=csv, field_delimiter=';', skip_header=1);
+
+select top 10 * from customers;
+
+delete from orders where order_id='B-25601';
+

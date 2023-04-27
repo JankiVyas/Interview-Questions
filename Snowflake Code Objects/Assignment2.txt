@@ -1,0 +1,16 @@
+create or replace schema exercise_db.file_formats;
+create or replace file format exercise_db.file_formats.my_file_format;
+desc file format exercise_db.file_formats.my_file_format;
+alter file format exercise_db.file_formats.my_file_format
+set FIELD_DELIMITER='|';
+
+create or replace stage exercise_db.external_stages.aws_ff_stage
+    url='s3://snowflake-assignments-mc/fileformat';
+
+List  @exercise_db.external_stages.aws_ff_stage;
+
+truncate table customers;
+
+copy into customers
+from @exercise_db.external_stages.aws_ff_stage
+file_format=(format_name=exercise_db.file_formats.my_file_format skip_header=1);

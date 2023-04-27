@@ -1,0 +1,24 @@
+grant imported privileges on database snowflake_sample_data to role public;
+
+
+select * from SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.CUSTOMER limit 5;
+
+
+alter database first_db rename to our_first_db;
+
+create database EXERCISE_DB;
+create table customers(
+id int,
+first_name varchar,
+last_name varchar,
+email varchar,
+age int,
+city varchar
+);
+
+copy into customers
+from s3://snowflake-assignments-mc/gettingstarted/customers.csv
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+;
+
+select count(1) from customers;

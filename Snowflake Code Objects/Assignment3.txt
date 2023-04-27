@@ -1,0 +1,27 @@
+create or replace table employees (
+customer_id int,
+  first_name varchar(50),
+  last_name varchar(50),
+  email varchar(50),
+  age int,
+  department varchar(50)
+  );
+
+create or replace stage exercise_db.external_stages.aws_copyoptions_stage
+url='s3://snowflake-assignments-mc/copyoptions/example1';
+
+create or replace file format EXERCISE_DB.FILE_FORMATS.Copy_options_ff
+TYPE = CSV
+FIELD_DELIMITER=','
+SKIP_HEADER=1;
+
+copy into EXERCISE_DB.PUBLIC.EMPLOYEES
+from @exercise_db.external_stages.AWS_COPYOPTIONS_STAGE
+file_format=(format_name=exercise_db.file_formats.Copy_options_ff)
+validation_mode=return_errors;
+
+
+copy into EXERCISE_DB.PUBLIC.EMPLOYEES
+from @exercise_db.external_stages.AWS_COPYOPTIONS_STAGE
+file_format=(format_name=exercise_db.file_formats.Copy_options_ff)
+ON_error=continue;

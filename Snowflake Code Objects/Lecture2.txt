@@ -1,0 +1,191 @@
+Create or replace database manage_db;
+create or replace schema external_stages;
+create or replace stage aws_stage
+    url='s3://bucketsnowflakes2'
+    credentials=(aws_key_id='ABCS_DUMMY_ID', aws_secret_key='1234abcs_key');
+
+desc stage aws_stage;
+
+create or replace stage aws_stage
+    url='s3://bucketsnowflakes3';
+list @aws_stage;
+
+create or replace table our_first_db.public.orders (
+order_id varchar(30),
+amount int,
+profit int,
+quantity int,
+category varchar(30),
+subcategory varchar(30)
+);
+
+select * from orders;
+
+//fails because there are 3 files and we have not selected a single file so it loads all files
+copy into orders
+from @manage_db.external_stages.aws_stage
+file_format=(type=csv, field_delimiter=',', skip_header=1);
+
+copy into orders
+from @manage_db.external_stages.aws_stage
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails.csv');
+
+select top 10 * from orders;
+
+//delete from orders where order_id='B-25601';
+
+
+create or replace table our_first_db.public.orders_ex (
+order_id varchar(30),
+amount int
+);
+
+copy into orders_ex
+from (select s.$1, s.$2 from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails.csv');
+
+create or replace table our_first_db.public.orders_ex1 (
+order_id varchar(30),
+amount int,
+profit_amt int,
+profit_flag varchar(30)
+);
+
+copy into orders_ex1
+from (select s.$1, s.$2, s.$3,
+    case when cast(s.$3 as int)< 0 then 'NP' else 'P' end from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails.csv');
+
+select * from orders_ex1;
+
+create or replace table our_first_db.public.orders_ex2 (
+order_id varchar(30),
+amount int,
+profit_amt int,
+profit_flag varchar(30)
+);
+
+
+
+copy into orders_ex2(order_id, profit_amt)
+from (select s.$1, s.$3 from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails.csv');
+
+
+select * from orders_ex2;
+
+//auto incrementing id
+create or replace table our_first_db.public.orders_ex3 (
+order_id number autoincrement start 1 increment 1,
+amount int,
+profit_amt int,
+profit_flag varchar(30)
+);
+
+copy into orders_ex3(amount, profit_amt)
+from (select s.$2, s.$3 from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails.csv');
+
+
+select * from orders_ex3;
+
+//on error
+create or replace stage manage_db.external_stages.aws_stage
+    url='s3://bucketsnowflakes4';
+
+list @manage_db.external_stages.aws_stage;
+
+create or replace table our_first_db.public.orders_ex4(
+order_id varchar(30),
+amount int,
+profit int,
+quantity int,
+category varchar(30),
+subcategory varchar(30)
+);
+
+
+//error as file contains string in profit column
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv');
+
+select * from orders_ex4;
+
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv')
+On_ERROR='Continue';
+
+truncate table orders_ex4;
+
+//if error occurs on the first file, second file will not be loaded
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+On_ERROR='ABORT_STATEMENT';
+
+//skips entire file with error, but loads the next file in files list
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+On_ERROR='SKIP_FILE';
+
+//specify allowed error limit while loading an error file
+truncate table orders_ex4;
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+On_ERROR='SKIP_FILE_4';
+
+truncate table orders_ex4;
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+On_ERROR='SKIP_FILE_2';
+
+truncate table orders_ex4;
+copy into orders_ex4
+from (select * from @manage_db.external_stages.aws_stage s)
+file_format=(type=csv, field_delimiter=',', skip_header=1)
+files=('OrderDetails_error.csv', 'OrderDetails_error2.csv')
+On_ERROR='SKIP_FILE_30%';
+
+//Create schema for a file format
+create or replace schema manage_db.file_formats;
+
+create or replace file format manage_db.file_formats.my_file_format;
+
+desc file format manage_db.file_formats.my_file_format;
+
+create or replace table our_first_db.public.orders_ex_ff(
+order_id varchar(30),
+amount int,
+profit int,
+quantity int,
+category varchar(30),
+subcategory varchar(30)
+);
+//fail as skip header is 0 by default
+copy into orders_ex_ff
+from @manage_db.external_stages.aws_stage
+file_format=(format_name=manage_db.file_formats.my_file_format)
+files=('OrderDetails_error.csv')
+ON_ERROR='SKIP_FILE_3';
+
+alter file format manage_db.file_formats.my_file_format
+set skip_header=1;
+
+alter file format manage_db.file_formats.my_file_format
+set type=JSON;
